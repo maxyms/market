@@ -1,0 +1,16 @@
+# Compiled source #
+###################
+*.class
+
+# Packages #
+###################
+*.jar
+
+.metadata/
+.settings/
+db/test.*
+*.lck
+*.log
+test.*
+target/
+!.gitkeep

@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<log4j:configuration debug="true" xmlns:log4j="http://jakarta.apache.org/log4j/">
+    <!-- BEGIN APPENDERS -->
+    <appender name="APP" class="org.apache.log4j.RollingFileAppender">
+        <param name="File" value="C:/temp/applogs/app.log"/>
+        <param name="Append" value="true"/>
+        <param name="MaxFileSize" value="30MB"/>
+        <param name="MaxBackupIndex" value="30"/>
+        <layout class="org.apache.log4j.PatternLayout">
+            <param name="ConversionPattern" value="%d{ISO8601}: %p: %c - %X %m%n"/>
+        </layout>
+    </appender>
+    
+    <!-- END APPENDERS -->
+    <root>
+        <level value="debug"/>
+        <appender-ref ref="APP"/>
+    </root>
+
+</log4j:configuration>
+
