@@ -12,28 +12,14 @@ import com.msaddt.market.manufacturer.IManufacturer;
 import com.msaddt.market.product.IProduct;
 
 public class Market {
-    int totalProducts;
-    private Queue<IProduct> products = new LinkedList<IProduct>();
-    Set<IManufacturer> manufacturers = new HashSet<IManufacturer>();
-    private Set<Customer> customers = new HashSet<Customer>();
-    MarketSettings settings;
-    private static final MarketSettings DEFAULT_SETTINGS = new MarketSettings() {
-        @Override
-        public long getCustomerBuyPeriod() {
-            return 500;
-        }
-
-        @Override
-        public long getFarmerProducePeriod() {
-            return 1000;
-        }
-    };
+    private int totalProducts;
+    private final Queue<IProduct> products = new LinkedList<IProduct>();
+    private final Set<IProduct> dischargedProducts = new HashSet<IProduct>();
+    private final Set<IManufacturer> manufacturers = new HashSet<IManufacturer>();
+    private final Set<Customer> customers = new HashSet<Customer>();
+    private MarketSettings settings;
     boolean isOpen = false;
-    Logger logger = LoggerFactory.getLogger(Market.class);
-
-    public Market() {
-        this.settings = DEFAULT_SETTINGS;
-    }
+    private final static Logger logger = LoggerFactory.getLogger(Market.class);
 
     public Market(MarketSettings settings) {
         this.settings = settings;
@@ -52,6 +38,7 @@ public class Market {
     public void open() {
         isOpen = true;
         logger.info("Market opened...");
+        logger.info("Market initialization starts...");
         for (IManufacturer manufacturer : manufacturers) {
             Thread t = new Thread(new ManufacturerProduce(manufacturer));
             t.start();
@@ -60,6 +47,9 @@ public class Market {
             Thread t = new Thread(new CustomerPurchase(customer));
             t.start();
         }
+        Thread t = new Thread(new LongTermProductMonitor());
+        t.start();
+        logger.info("Market initialization ends...");
     }
 
     public void close() {
@@ -79,11 +69,13 @@ public class Market {
             while (isOpen && manufacturers.contains(manufacturer)) {
                 IProduct fruit = manufacturer.produce();
                 if (fruit != null) {
-                    synchronized (fruit) {
-                        getProducts().add(fruit);
-                        logger.debug(manufacturer.getName() + " added fruit " + fruit + " to market ");
+                    synchronized (products) {
+                        if (isOpen) {
+                            getProducts().add(fruit);
+                            logger.debug(manufacturer.getName() + " added fruit " + fruit + " to market ");
+                            totalProducts++;
+                        }
                     }
-                    totalProducts++;
                 }
                 try {
                     Thread.sleep(settings.getFarmerProducePeriod());
@@ -106,15 +98,17 @@ public class Market {
             while (isOpen) {
                 boolean areFruitsExists = false;
                 synchronized (products) {
-                    areFruitsExists = !getProducts().isEmpty();
-                    if (areFruitsExists) {
-                        IProduct fruit = getProducts().peek();
-                        if (customer.buy(fruit)) {
-                            getProducts().remove(fruit);
-                            logger.debug(customer.getName() + " bought product " + fruit);
+                    if (isOpen) {
+                        areFruitsExists = !getProducts().isEmpty();
+                        if (areFruitsExists) {
+                            IProduct fruit = getProducts().peek();
+                            if (customer.buy(fruit)) {
+                                getProducts().remove(fruit);
+                                logger.debug(customer.getName() + " bought product " + fruit);
+                            }
+                        } else {
+                            logger.debug(customer.getName() + " is waiting for fruits...");
                         }
-                    } else {
-                        logger.debug(customer.getName() + " is waiting for fruits...");
                     }
                 }
                 try {
@@ -126,7 +120,42 @@ public class Market {
         }
     }
 
-    public Queue<IProduct> getProducts() {
+    private class LongTermProductMonitor implements Runnable {
+        @Override
+        public void run() {
+            while (isOpen) {
+                boolean areProductsExist = false;
+                synchronized (products) {
+                    if (isOpen) {
+                        areProductsExist = !getProducts().isEmpty();
+                        if (areProductsExist) {
+                            logger.debug("Perform long-term check...");
+                            long currentTime = System.currentTimeMillis();
+                            Set<IProduct> productsSnapshot = new HashSet<IProduct>(getProducts());
+                            for (IProduct product : productsSnapshot) {
+                                long timeOnMarket = currentTime - product.getTimeCreated();
+                                if (timeOnMarket > settings.getMaxTimeOnMarket()) {
+                                    getProducts().remove(product);
+                                    dischargedProducts.add(product);
+                                    logger.warn("Product [" + product + " was removed from market, long-term is " + timeOnMarket);
+                                } else if (timeOnMarket > settings.getLongTermTimeOnMarket()) {
+                                    product.getManufacturer().notifyProductLongTerm(product);
+                                }
+                            }
+                        }
+                    }
+                }
+                try {
+                    logger.debug("Waiting long-term monitor...");
+                    Thread.sleep(settings.getLongTermMonitorFrequency());
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+    }
+
+    private Queue<IProduct> getProducts() {
         return products;
     }
 
@@ -140,5 +169,15 @@ public class Market {
 
     public Set<Customer> getCustomers() {
         return customers;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder("Total Products appeared on market: " + getTotalProducts());
+        synchronized (products) {
+            sb.append("\nProducts Discharged: [" + dischargedProducts.size() + "] " + dischargedProducts);
+            sb.append("\nProducts Remain: [" + getProducts().size() + "] " + getProducts());
+        }
+        return sb.toString();
     }
 }

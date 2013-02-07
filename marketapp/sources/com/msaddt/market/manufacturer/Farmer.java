@@ -56,4 +56,17 @@ public class Farmer implements IManufacturer {
     public String toString() {
         return "Farmer [" + name + "], fruits produced: " + fruits.size();
     }
+
+    @Override
+    public void notifyProductLongTerm(IProduct product) {
+        long timeOnMarket = (System.currentTimeMillis() - product.getTimeCreated());
+        String message = String.format("Product [%s] is too long on market [%dms]. Reduce the price", product.toString(), timeOnMarket);
+        logger.warn(message);
+        //TODO: make $1 as parameter
+        double reducedPrice = product.getPrice() - 1.0;
+        if (reducedPrice >= product.getMinPrice()) {
+            product.setPrice(reducedPrice);
+            logger.debug("Price reduced by $1.00");
+        }
+    }
 }

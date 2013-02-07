@@ -5,12 +5,17 @@ import com.msaddt.market.manufacturer.IManufacturer;
 public abstract class AbstractProduct implements IProduct {
     private String name;
     private Double price;
+    private Double minPrice;
     private IManufacturer manufacturer;
+    private long timeCreated;
+    private boolean onSale = false;
 
-    public AbstractProduct(IManufacturer manufacturer, String name, Double price) {
+    public AbstractProduct(IManufacturer manufacturer, String name, Double price, Double minPrice) {
         this.manufacturer = manufacturer;
         this.name = name;
         this.price = price;
+        this.minPrice = minPrice;
+        setTimeCreated();
     }
 
     @Override
@@ -24,13 +29,18 @@ public abstract class AbstractProduct implements IProduct {
     }
 
     @Override
+    public Double getMinPrice() {
+        return minPrice;
+    }
+
+    @Override
     public IManufacturer getManufacturer() {
         return manufacturer;
     }
 
     @Override
     public String toString() {
-        return getName() + " [" + getPrice() + "] produced by " + getManufacturer().getName();
+        return (onSale ? "ON SALE, " : "") + getName() + " [" + getPrice() + "] produced by " + getManufacturer().getName();
     }
 
     protected void setName(String name) {
@@ -39,10 +49,22 @@ public abstract class AbstractProduct implements IProduct {
 
     @Override
     public void setPrice(Double price) {
+        if (price < this.price) {
+            onSale = true;
+        }
         this.price = price;
     }
 
     protected void setManufacturer(IManufacturer manufacturer) {
         this.manufacturer = manufacturer;
+    }
+
+    @Override
+    public long getTimeCreated() {
+        return timeCreated;
+    }
+
+    private void setTimeCreated() {
+        timeCreated = System.currentTimeMillis();
     }
 }

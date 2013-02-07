@@ -11,7 +11,13 @@ public class TestMarket {
 
     public static void main(String... strings) throws InterruptedException {
         logger.debug("-----------Start Market Aplication-----------");
-        Market market = new Market();
+        final MarketSettings settings = new MarketSettings();
+        settings.setCustomerBuyPeriod(500);
+        settings.setFarmerProducePeriod(1000);
+        settings.setLongTermMonitorFrequency(100);
+        settings.setMaxTimeOnMarket(2000);
+        settings.setLongTermTimeOnMarket(1000);
+        Market market = new Market(settings);
         int farmers = 3;
         for (int i = 0; i < farmers; i++) {
             Farmer farmer = new Farmer("Farmer " + (i + 1));
@@ -32,8 +38,7 @@ public class TestMarket {
         for (IManufacturer farmer : market.getManufacturers()) {
             logger.debug(farmer.toString());
         }
-        logger.debug("Total Products: " + market.getTotalProducts());
-        logger.debug("Products Remain: " + market.getProducts());
+        logger.debug(market.toString());
         logger.debug("-----------End Market Aplication-----------");
     }
 }

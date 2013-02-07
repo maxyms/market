@@ -6,4 +6,6 @@ public interface IManufacturer {
     IProduct produce();
 
     String getName();
+
+    void notifyProductLongTerm(IProduct product);
 }

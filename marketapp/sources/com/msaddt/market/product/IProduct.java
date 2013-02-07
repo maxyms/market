@@ -10,4 +10,8 @@ public interface IProduct {
     void setPrice(Double price);
 
     IManufacturer getManufacturer();
+
+    long getTimeCreated();
+
+    Double getMinPrice();
 }
