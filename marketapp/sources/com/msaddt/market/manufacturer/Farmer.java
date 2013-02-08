@@ -16,7 +16,7 @@ import com.msaddt.market.product.Watermelon;
 public class Farmer implements IManufacturer {
     private String name;
     private Logger logger = LoggerFactory.getLogger(Farmer.class);
-    private Set<Fruit> fruits = new HashSet<Fruit>();
+    private Set<IProduct> fruits = new HashSet<IProduct>();
 
     public Farmer(String name) {
         this.name = name;
@@ -42,7 +42,7 @@ public class Farmer implements IManufacturer {
             default:
                 break;
         }
-        logger.debug(this + " produced fruit " + fruit);
+        logger.debug(this.getName() + " produced fruit " + fruit);
         fruits.add(fruit);
         return fruit;
     }
@@ -68,5 +68,10 @@ public class Farmer implements IManufacturer {
             product.setPrice(reducedPrice);
             logger.debug("Price reduced by $1.00");
         }
+    }
+
+    @Override
+    public Set<IProduct> getProducts() {
+        return fruits;
     }
 }

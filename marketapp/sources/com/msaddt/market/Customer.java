@@ -10,12 +10,14 @@ import com.msaddt.market.product.IProduct;
 
 public class Customer {
     private String name;
+    private Double initialBalance;
     private Double balance;
     private Set<IProduct> products = new HashSet<IProduct>();
     private Logger logger = LoggerFactory.getLogger(Customer.class);
 
     public Customer(String name, Double balance) {
         this.name = name;
+        this.initialBalance = balance;
         this.balance = balance;
     }
 
@@ -37,7 +39,19 @@ public class Customer {
 
     @Override
     public String toString() {
-        return String.format("Customer [%s], Balance [$%.2f], Products#: [%d], Products: %s", name, balance, products.size(),
-                products.toString());
+        return String.format("Customer [%s], Initial Balance [$%.2f], Balance [$%.2f], Products#: [%d], Products: %s", name,
+                initialBalance, getBalance(), products.size(), products.toString());
+    }
+
+    public Set<IProduct> getProducts() {
+        return products;
+    }
+
+    public Double getInitialBalance() {
+        return initialBalance;
+    }
+
+    public Double getBalance() {
+        return balance;
     }
 }

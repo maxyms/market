@@ -12,27 +12,68 @@ import com.msaddt.market.manufacturer.IManufacturer;
 import com.msaddt.market.product.IProduct;
 
 public class Market {
-    private int totalProducts;
+    private final MarketStatistics statistics = new MarketStatistics();
     private final Queue<IProduct> products = new LinkedList<IProduct>();
-    private final Set<IProduct> dischargedProducts = new HashSet<IProduct>();
     private final Set<IManufacturer> manufacturers = new HashSet<IManufacturer>();
     private final Set<Customer> customers = new HashSet<Customer>();
     private MarketSettings settings;
-    boolean isOpen = false;
+    private boolean isOpen = false;
     private final static Logger logger = LoggerFactory.getLogger(Market.class);
 
     public Market(MarketSettings settings) {
         this.settings = settings;
     }
 
+    public MarketStatistics getStatistics() {
+        return statistics;
+    }
+
     public void addManufacturer(IManufacturer manufacturer) {
-        manufacturers.add(manufacturer);
-        logger.debug("Manufacturer added to market: " + manufacturer);
+        if (manufacturers.contains(manufacturer)) {
+            logger.warn("Manufacturer already on market: " + manufacturer);
+        } else {
+            manufacturers.add(manufacturer);
+            statistics.onManufacturerAdded(manufacturer);
+            if (isOpen()) {
+                Thread t = new Thread(new ManufacturerProduce(manufacturer));
+                t.start();
+            }
+            logger.debug("Manufacturer added to market: " + manufacturer);
+        }
+    }
+
+    public void removeManufacturer(IManufacturer manufacturer) {
+        if (manufacturers.contains(manufacturer)) {
+            manufacturers.remove(manufacturer);
+            //            statistics.onManufacturerAdded(manufacturer);
+            logger.warn("Manufacturer removed from market: " + manufacturer);
+        } else {
+            logger.warn("No such manufacturer on market: " + manufacturer);
+        }
     }
 
     public void addCustomer(Customer customer) {
-        customers.add(customer);
-        logger.debug("Customer added to market: " + customer);
+        if (customers.contains(customer)) {
+            logger.warn("Customer already on market: " + customer);
+        } else {
+            customers.add(customer);
+            statistics.onCustomerAdded(customer);
+            if (isOpen()) {
+                Thread t = new Thread(new CustomerPurchase(customer));
+                t.start();
+            }
+            logger.debug("Customer added to market: " + customer);
+        }
+    }
+
+    public void removeCustomer(Customer customer) {
+        if (customers.contains(customer)) {
+            customers.remove(customer);
+            //            statistics.onManufacturerAdded(manufacturer);
+            logger.warn("Customer removed from market: " + customer);
+        } else {
+            logger.warn("No such customer on market: " + customer);
+        }
     }
 
     public void open() {
@@ -55,6 +96,7 @@ public class Market {
     public void close() {
         isOpen = false;
         logger.info("Market closed...");
+        logger.info(toString());
     }
 
     private class ManufacturerProduce implements Runnable {
@@ -67,13 +109,13 @@ public class Market {
         @Override
         public void run() {
             while (isOpen && manufacturers.contains(manufacturer)) {
-                IProduct fruit = manufacturer.produce();
-                if (fruit != null) {
+                IProduct product = manufacturer.produce();
+                if (product != null) {
                     synchronized (products) {
                         if (isOpen) {
-                            getProducts().add(fruit);
-                            logger.debug(manufacturer.getName() + " added fruit " + fruit + " to market ");
-                            totalProducts++;
+                            getProducts().add(product);
+                            logger.debug(manufacturer.getName() + " added product " + product + " to market ");
+                            statistics.onProductAdded(product);
                         }
                     }
                 }
@@ -136,7 +178,7 @@ public class Market {
                                 long timeOnMarket = currentTime - product.getTimeCreated();
                                 if (timeOnMarket > settings.getMaxTimeOnMarket()) {
                                     getProducts().remove(product);
-                                    dischargedProducts.add(product);
+                                    statistics.onProductDischarged(product);
                                     logger.warn("Product [" + product + " was removed from market, long-term is " + timeOnMarket);
                                 } else if (timeOnMarket > settings.getLongTermTimeOnMarket()) {
                                     product.getManufacturer().notifyProductLongTerm(product);
@@ -155,12 +197,8 @@ public class Market {
         }
     }
 
-    private Queue<IProduct> getProducts() {
+    public Queue<IProduct> getProducts() {
         return products;
-    }
-
-    public int getTotalProducts() {
-        return totalProducts;
     }
 
     public Set<IManufacturer> getManufacturers() {
@@ -173,11 +211,42 @@ public class Market {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder("Total Products appeared on market: " + getTotalProducts());
-        synchronized (products) {
-            sb.append("\nProducts Discharged: [" + dischargedProducts.size() + "] " + dischargedProducts);
-            sb.append("\nProducts Remain: [" + getProducts().size() + "] " + getProducts());
+        StringBuilder sb = new StringBuilder();
+        int totalProductsBought = 0;
+        double totalInitialCustomerBalance = 0;
+        for (Customer customer : getCustomers()) {
+            totalProductsBought += customer.getProducts().size();
+            totalInitialCustomerBalance += customer.getInitialBalance();
+        }
+        int totalProductsProduced = 0;
+        for (IManufacturer manufacturer : getManufacturers()) {
+            totalProductsProduced += manufacturer.getProducts().size();
+        }
+        sb.append("-------------------Market statistics----------------");
+        sb.append(String.format("\nTotal initial customers balance: [$%.2f]", totalInitialCustomerBalance));
+        sb.append("\n----Products:");
+        sb.append("\nTotal Products produced: " + totalProductsProduced);
+        sb.append("\nTotal Products appeared on market: " + statistics.getProducts().size());
+        sb.append("\nTotal Products bought by customers: " + totalProductsBought);
+        sb.append("\nTotal Products discharged: " + statistics.getDischargedProducts().size());
+        sb.append("\nTotal Products remained: " + getProducts().size());
+        sb.append("\nProducts Remain: " + getProducts());
+        sb.append("\n");
+        sb.append("\nProducts Discharged: ] " + statistics.getDischargedProducts());
+        sb.append("\n");
+        sb.append("\n----Manufacturers:");
+        for (IManufacturer manufacturer : getManufacturers()) {
+            sb.append("\n  " + manufacturer);
+        }
+        sb.append("\n");
+        sb.append("\n----Customers:");
+        for (Customer customer : getCustomers()) {
+            sb.append("\n  " + customer);
         }
         return sb.toString();
+    }
+
+    public boolean isOpen() {
+        return isOpen;
     }
 }
